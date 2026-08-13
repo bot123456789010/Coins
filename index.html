@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Coin Catalog</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: #f5f5f5; color: #1a1a1a; padding: 20px; line-height: 1.5;
+  }
+  h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #666; margin-bottom: 16px; }
+  .catalog-header { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+  .catalog-header input, .catalog-header select {
+    padding: 8px 12px; border-radius: 8px; border: 1px solid #ddd;
+    background: #fff; font-size: 14px; min-width: 160px;
+  }
+  .catalog-header input { flex: 1; min-width: 200px; }
+  .silver-toggle {
+    display: flex; align-items: center; gap: 6px; font-size: 14px;
+    color: #555; cursor: pointer; user-select: none;
+    padding: 8px 12px; border-radius: 8px; border: 1px solid #ddd; background: #fff;
+  }
+  .silver-toggle input { width: 16px; height: 16px; }
+  .stats-bar {
+    display: flex; gap: 14px; font-size: 12px; color: #888;
+    margin-bottom: 12px; flex-wrap: wrap;
+  }
+  .coin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .coin-card {
+    border: 1px solid #e0e0e0; border-radius: 10px; padding: 14px 16px;
+    background: #fff; transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .coin-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+  .coin-card.silver { border-left: 3px solid #0066cc; }
+  .coin-rank {
+    float: right; font-size: 11px; font-weight: 600; color: #bbb;
+    font-variant-numeric: tabular-nums;
+  }
+  .coin-top { display: flex; align-items: baseline; gap: 8px; margin-bottom: 3px; }
+  .coin-name { font-size: 15px; font-weight: 600; color: #1a1a1a; }
+  .coin-year { font-size: 13px; color: #999; }
+  .coin-country { font-size: 12px; color: #666; margin-bottom: 6px; }
+  .coin-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+  .coin-tag {
+    font-size: 11px; padding: 2px 8px; border-radius: 5px;
+    background: #f0f0f0; color: #555; white-space: nowrap;
+  }
+  .coin-tag.silver-tag { background: #e6f0ff; color: #0066cc; }
+  .coin-value { font-size: 14px; font-weight: 600; color: #1a1a1a; margin-bottom: 4px; }
+  .coin-mintage { font-size: 11px; color: #999; }
+  .coin-note { font-size: 11px; color: #aaa; margin-top: 4px; }
+  .empty-state { text-align: center; padding: 40px; color: #aaa; font-size: 14px; }
+  .sort-btn {
+    padding: 8px 12px; border-radius: 8px; border: 1px solid #ddd;
+    background: #fff; color: #555; font-size: 13px; cursor: pointer; white-space: nowrap;
+  }
+  .sort-btn.active { border-color: #1a1a1a; color: #1a1a1a; font-weight: 500; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #eee; }
+    .coin-card { background: #2a2a2a; border-color: #444; }
+    .coin-tag { background: #3a3a3a; color: #ccc; }
+    .coin-tag.silver-tag { background: #1a3a5c; color: #88bbff; }
+    input, select, .sort-btn, .silver-toggle { background: #2a2a2a; border-color: #444; color: #eee; }
+    .coin-name { color: #eee; }
+    .coin-value { color: #eee; }
+  }
+</style>
+</head>
+<body>
+<h1>My Coin Catalog</h1>
+<div class="subtitle">66 coins from 22 countries &middot; 1789&ndash;1989 &middot; Searchable collection</div>
+
+<div class="catalog-header">
+  <input type="text" id="searchInput" placeholder="Search coin, country, year, material, mintage...">
+  <select id="countryFilter"><option value="">All countries</option></select>
+  <label class="silver-toggle"><input type="checkbox" id="silverOnly"> Silver only</label>
+  <button class="sort-btn active" data-sort="value" onclick="setSort('value')">Most valuable</button>
+  <button class="sort-btn" data-sort="year" onclick="setSort('year')">Oldest first</button>
+  <button class="sort-btn" data-sort="country" onclick="setSort('country')">Country A&ndash;Z</button>
+  <button class="sort-btn" data-sort="id" onclick="setSort('id')">Coin #</button>
+</div>
+<div class="stats-bar" id="statsBar"></div>
+<div class="coin-grid" id="coinGrid"></div>
+
+<script>
+const coins = [
+  {id:1,name:"Indian Head Cent",year:1896,country:"USA",material:"Bronze",value:"$3–$8",sortVal:8,mint:"Philadelphia",silver:false,mintage:"39,057,293"},
+  {id:2,name:"3 Kopecks",year:1842,country:"Russia",material:"Copper",value:"$15–$50",sortVal:50,mint:"EM (Ekaterinburg)",silver:false,mintage:"~13,700,000"},
+  {id:3,name:"1 Real",year:1789,country:"Spain / Mexico",material:"Silver (.903)",value:"$25–$60",sortVal:60,mint:"Mo (Mexico City)",silver:true,mintage:"Not recorded"},
+  {id:4,name:"20 Rappen",year:1962,country:"Switzerland",material:"Copper-Nickel",value:"$0.20–$1",sortVal:1,mint:"B (Bern)",silver:false,mintage:"30,145,000"},
+  {id:5,name:"10 Kopecks",year:1923,country:"USSR",material:"Silver (.500)",value:"$2–$15",sortVal:15,mint:"Leningrad",silver:true,mintage:"Millions (common)"},
+  {id:6,name:"1 Lek",year:1939,country:"Albania",material:"Stainless Steel",value:"$3–$12",sortVal:12,mint:"R (Rome)",silver:false,mintage:"~2.1–4.6 million"},
+  {id:7,name:"5 Lek",year:1939,country:"Albania",material:"Silver (.835)",value:"$30–$65",sortVal:65,mint:"R (Rome)",silver:true,mintage:"1,350,000"},
+  {id:8,name:"1/4 Rupee",year:1954,country:"India",material:"Nickel",value:"$3–$8",sortVal:8,mint:"Calcutta / Bombay",silver:false,mintage:"Not recorded"},
+  {id:9,name:"10 Rappen",year:1955,country:"Switzerland",material:"Copper-Nickel",value:"$0.10–$0.50",sortVal:0.5,mint:"B (Bern)",silver:false,mintage:"5,080,000"},
+  {id:10,name:"100 Lire",year:1956,country:"Italy",material:"Acmonital",value:"$0.50–$3",sortVal:3,mint:"R (Rome)",silver:false,mintage:"99,800,000"},
+  {id:11,name:"10 Rappen",year:1959,country:"Switzerland",material:"Copper-Nickel",value:"$0.10–$0.50",sortVal:0.5,mint:"B (Bern)",silver:false,mintage:"10,600,000"},
+  {id:12,name:"50 Kopecks",year:1964,country:"USSR",material:"Cupronickel",value:"$0.50–$4",sortVal:4,mint:"Moscow / Leningrad",silver:false,mintage:"High mintage (common)"},
+  {id:13,name:"1 Franc",year:1964,country:"France",material:"Nickel",value:"$0.20–$2",sortVal:2,mint:"Paris",silver:false,mintage:"77,425,000"},
+  {id:14,name:"25 Cents",year:1965,country:"Netherlands",material:"Nickel",value:"$0.50–$3",sortVal:3,mint:"Utrecht",silver:false,mintage:"Not recorded"},
+  {id:15,name:"One Dime",year:1967,country:"USA",material:"Cu-Ni Clad",value:"$0.10–$0.50",sortVal:0.5,mint:"Philadelphia",silver:false,mintage:"2,244,007,320"},
+  {id:16,name:"50 Pfennig",year:1967,country:"West Germany",material:"Cupronickel",value:"$0.20–$1.50",sortVal:1.5,mint:"J (Hamburg)",silver:false,mintage:"~64 million"},
+  {id:17,name:"20 Centimes",year:1968,country:"France",material:"Al-Bronze",value:"$0.50–$2",sortVal:2,mint:"Paris",silver:false,mintage:"77,408,000"},
+  {id:18,name:"100 Lire",year:1969,country:"Italy",material:"Acmonital",value:"$0.50–$2",sortVal:2,mint:"R (Rome)",silver:false,mintage:"60,005,000"},
+  {id:19,name:"10 Rappen",year:1970,country:"Switzerland",material:"Copper-Nickel",value:"$0.10–$0.50",sortVal:0.5,mint:"B (Bern)",silver:false,mintage:"8,600,000"},
+  {id:20,name:"50 Pfennig",year:1972,country:"West Germany",material:"Cupronickel",value:"$0.20–$1.50",sortVal:1.5,mint:"F (Stuttgart)",silver:false,mintage:"~49 million"},
+  {id:21,name:"25 Øre",year:1972,country:"Denmark",material:"Copper-Nickel",value:"$0.50–$3",sortVal:3,mint:"Copenhagen",silver:false,mintage:"31,422,000"},
+  {id:22,name:"10 Haleru",year:1976,country:"Czechoslovakia",material:"Aluminium",value:"$0.10–$0.50",sortVal:0.5,mint:"Kremnica",silver:false,mintage:"44,015,000"},
+  {id:23,name:"50 Lire",year:1976,country:"Italy",material:"Acmonital",value:"$0.50–$2",sortVal:2,mint:"R (Rome)",silver:false,mintage:"~85 million"},
+  {id:24,name:"Quarter Dollar",year:1977,country:"USA",material:"Cu-Ni Clad",value:"$0.25–$1",sortVal:1,mint:"D (Denver)",silver:false,mintage:"Not recorded"},
+  {id:25,name:"100 Lire",year:1977,country:"Italy",material:"Acmonital",value:"$0.50–$2",sortVal:2,mint:"R (Rome)",silver:false,mintage:"~58 million"},
+  {id:26,name:"10 Cents",year:1980,country:"Netherlands",material:"Nickel",value:"$0.20–$1.50",sortVal:1.5,mint:"Utrecht",silver:false,mintage:"44,000,000"},
+  {id:27,name:"25 Cents",year:1980,country:"Netherlands",material:"Nickel",value:"$0.50–$3",sortVal:3,mint:"Utrecht",silver:false,mintage:"35,000,000"},
+  {id:28,name:"Quarter Dollar",year:1974,country:"USA",material:"Cu-Ni Clad",value:"$0.25–$1",sortVal:1,mint:"D (Denver)",silver:false,mintage:"~353 million"},
+  {id:29,name:"10 Rappen",year:1974,country:"Switzerland",material:"Copper-Nickel",value:"$0.10–$0.50",sortVal:0.5,mint:"B (Bern)",silver:false,mintage:"5,600,000"},
+  {id:30,name:"1/2 Franc",year:1974,country:"Switzerland",material:"Copper-Nickel",value:"$0.50–$2",sortVal:2,mint:"B (Bern)",silver:false,mintage:"5,600,000"},
+  {id:31,name:"Five Cents",year:1973,country:"USA",material:"Copper-Nickel",value:"$0.05–$0.50",sortVal:0.5,mint:"D (Denver)",silver:false,mintage:"~261 million"},
+  {id:32,name:"25 Cents",year:1975,country:"Netherlands",material:"Nickel",value:"$0.50–$3",sortVal:3,mint:"Utrecht",silver:false,mintage:"45,000,000"},
+  {id:33,name:"10 Centimes",year:1975,country:"France",material:"Al-Bronze",value:"$0.50–$2",sortVal:2,mint:"Paris",silver:false,mintage:"~180 million"},
+  {id:34,name:"1 Mark",year:1977,country:"West Germany",material:"Cupronickel",value:"$0.50–$3",sortVal:3,mint:"F (Stuttgart)",silver:false,mintage:"~43 million"},
+  {id:35,name:"5 Francs",year:1971,country:"France",material:"Ni-clad Steel",value:"$0.50–$3",sortVal:3,mint:"Paris",silver:false,mintage:"~85 million"},
+  {id:36,name:"5 Rappen",year:1986,country:"Switzerland",material:"Copper-Nickel",value:"$0.05–$0.50",sortVal:0.5,mint:"B (Bern)",silver:false,mintage:"~15 million"},
+  {id:37,name:"5 Francs",year:1986,country:"Belgium",material:"Copper-Nickel",value:"$0.20–$1.50",sortVal:1.5,mint:"Brussels",silver:false,mintage:"~18 million",note:"BELGIE variety"},
+  {id:38,name:"10 Rappen",year:1979,country:"Switzerland",material:"Copper-Nickel",value:"$0.10–$0.50",sortVal:0.5,mint:"B (Bern)",silver:false,mintage:"~10 million"},
+  {id:39,name:"1/2 Franc",year:1979,country:"Switzerland",material:"Copper-Nickel",value:"$0.50–$2",sortVal:2,mint:"B (Bern)",silver:false,mintage:"Not recorded",note:"Duplicate of #030"},
+  {id:40,name:"200 Lire",year:1979,country:"Italy",material:"Bronze-Al",value:"$0.50–$2",sortVal:2,mint:"R (Rome)",silver:false,mintage:"Not recorded"},
+  {id:41,name:"25 Cents",year:1979,country:"Netherlands",material:"Nickel",value:"$0.50–$3",sortVal:3,mint:"Utrecht",silver:false,mintage:"Not recorded"},
+  {id:42,name:"10 Kopecks",year:1984,country:"USSR",material:"Cupronickel",value:"$0.10–$1",sortVal:1,mint:"Moscow / Leningrad",silver:false,mintage:"High mintage (common)"},
+  {id:43,name:"20 Kopecks",year:1984,country:"USSR",material:"Cupronickel",value:"$0.10–$1",sortVal:1,mint:"Moscow / Leningrad",silver:false,mintage:"High mintage (common)"},
+  {id:44,name:"25 Pesetas",year:1984,country:"Spain",material:"Copper-Nickel",value:"$0.50–$3",sortVal:3,mint:"Madrid",silver:false,mintage:"242,000,000"},
+  {id:45,name:"100 Lire",year:1978,country:"Italy",material:"Acmonital",value:"$0.50–$2",sortVal:2,mint:"R (Rome)",silver:false,mintage:"Not recorded"},
+  {id:46,name:"5 Drachmas",year:1978,country:"Greece",material:"Copper-Nickel",value:"$0.20–$1",sortVal:1,mint:"Athens",silver:false,mintage:"Not recorded"},
+  {id:47,name:"50 Lire",year:1978,country:"Italy",material:"Acmonital",value:"$0.50–$2",sortVal:2,mint:"R (Rome)",silver:false,mintage:"Not recorded"},
+  {id:48,name:"1 Franc",year:1978,country:"Switzerland",material:"Copper-Nickel",value:"$0.50–$2",sortVal:2,mint:"B (Bern)",silver:false,mintage:"Not recorded"},
+  {id:49,name:"200 Pesos",year:1985,country:"Mexico",material:"Stainless Steel",value:"$1–$3",sortVal:3,mint:"Mexico City",silver:false,mintage:"Not recorded",note:"75th Anniv. of Revolution"},
+  {id:50,name:"20 Rappen",year:1985,country:"Switzerland",material:"Copper-Nickel",value:"$0.20–$1",sortVal:1,mint:"B (Bern)",silver:false,mintage:"Not recorded"},
+  {id:51,name:"500 Lire",year:1985,country:"Italy",material:"Bi-metallic",value:"$0.50–$2",sortVal:2,mint:"R (Rome)",silver:false,mintage:"Not recorded"},
+  {id:52,name:"Lincoln Cent",year:1983,country:"USA",material:"Cu-plated Zn",value:"$0.01–$0.10",sortVal:0.1,mint:"Philadelphia",silver:false,mintage:"High mintage (common)"},
+  {id:53,name:"1 Gulden",year:1983,country:"Netherlands",material:"Nickel",value:"$0.50–$3",sortVal:3,mint:"Utrecht",silver:false,mintage:"Not recorded",note:"Queen Beatrix"},
+  {id:54,name:"5 Cents",year:1985,country:"Cyprus",material:"Ni-Brass",value:"$0.10–$0.50",sortVal:0.5,mint:"Nicosia",silver:false,mintage:"Not recorded"},
+  {id:55,name:"20 Pence",year:1988,country:"Great Britain",material:"Cupronickel",value:"$0.20–$1",sortVal:1,mint:"London",silver:false,mintage:"Not recorded"},
+  {id:56,name:"10 Centimes",year:1965,country:"France",material:"Al-Bronze",value:"$0.50–$2",sortVal:2,mint:"Paris",silver:false,mintage:"Not recorded"},
+  {id:57,name:"1 Cent",year:1988,country:"Cyprus",material:"Ni-Brass",value:"$0.10–$0.50",sortVal:0.5,mint:"Nicosia",silver:false,mintage:"Not recorded"},
+  {id:58,name:"50 Pesos",year:1988,country:"Mexico",material:"Stainless Steel",value:"$0.50–$2",sortVal:2,mint:"Mo (Mexico City)",silver:false,mintage:"Not recorded"},
+  {id:59,name:"50 Drachmas",year:1986,country:"Greece",material:"Copper-Nickel",value:"$0.50–$2",sortVal:2,mint:"Athens",silver:false,mintage:"Not recorded"},
+  {id:60,name:"20 Drachmas",year:1988,country:"Greece",material:"Copper-Nickel",value:"$0.50–$2",sortVal:2,mint:"Athens",silver:false,mintage:"Not recorded"},
+  {id:61,name:"50 Pesos",year:1988,country:"Colombia",material:"Copper-Nickel",value:"$0.50–$2",sortVal:2,mint:"Bogotá",silver:false,mintage:"Not recorded",note:"Constitutional Centennial"},
+  {id:62,name:"2 Pence",year:1989,country:"Great Britain",material:"Bronze",value:"$0.02–$0.20",sortVal:0.2,mint:"London",silver:false,mintage:"High mintage (common)",note:"×3 identical"},
+  {id:63,name:"2 Rand",year:1989,country:"South Africa",material:"Ni-plated Cu",value:"$0.50–$2",sortVal:2,mint:"Pretoria",silver:false,mintage:"Not recorded"},
+  {id:64,name:"1 Forint",year:1989,country:"Hungary",material:"Aluminium",value:"$0.10–$0.50",sortVal:0.5,mint:"Budapest",silver:false,mintage:"Not recorded"},
+];
+
+const expanded = [];
+coins.forEach(c => {
+  if (c.note && c.note.includes("×3")) {
+    for (let i = 0; i < 3; i++) {
+      expanded.push({...c, note: i === 0 ? "3 identical coins" : undefined});
+    }
+  } else {
+    expanded.push(c);
+  }
+});
+
+let currentSort = 'value';
+let sortDir = -1;
+
+function populateCountries() {
+  const sel = document.getElementById('countryFilter');
+  const countries = [...new Set(expanded.map(c => c.country))].sort();
+  countries.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c; opt.textContent = c;
+    sel.appendChild(opt);
+  });
+}
+
+function render() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const country = document.getElementById('countryFilter').value;
+  const silverOnly = document.getElementById('silverOnly').checked;
+
+  let filtered = expanded.filter(c => {
+    const matchesQ = !q || c.name.toLowerCase().includes(q) || c.country.toLowerCase().includes(q) || String(c.year).includes(q) || c.material.toLowerCase().includes(q) || c.mint.toLowerCase().includes(q) || c.mintage.toLowerCase().includes(q);
+    const matchesCountry = !country || c.country === country;
+    const matchesSilver = !silverOnly || c.silver;
+    return matchesQ && matchesCountry && matchesSilver;
+  });
+
+  filtered.sort((a,b) => {
+    if (currentSort === 'value') return (b.sortVal - a.sortVal) * sortDir;
+    if (currentSort === 'year') return (a.year - b.year) * sortDir;
+    if (currentSort === 'country') return a.country.localeCompare(b.country) * sortDir;
+    return (a.id - b.id) * sortDir;
+  });
+
+  const grid = document.getElementById('coinGrid');
+  if (filtered.length === 0) {
+    grid.innerHTML = '<div class="empty-state">No coins match your search.</div>';
+  } else {
+    grid.innerHTML = filtered.map((c, idx) => `
+      <div class="coin-card ${c.silver ? 'silver' : ''}">
+        <div class="coin-rank">#${c.id}</div>
+        <div class="coin-top">
+          <span class="coin-name">${c.name}</span>
+          <span class="coin-year">${c.year}</span>
+        </div>
+        <div class="coin-country">${c.country} &middot; ${c.mint}</div>
+        <div class="coin-meta">
+          <span class="coin-tag ${c.silver ? 'silver-tag' : ''}">${c.material}</span>
+          ${c.note ? `<span class="coin-tag">${c.note}</span>` : ''}
+        </div>
+        <div class="coin-value">${c.value}</div>
+        <div class="coin-mintage">Mintage: ${c.mintage}</div>
+      </div>
+    `).join('');
+  }
+
+  const stats = document.getElementById('statsBar');
+  stats.innerHTML = `
+    <span>Showing ${filtered.length} coin${filtered.length!==1?'s':''}</span>
+    <span>&middot;</span>
+    <span>${expanded.filter(c=>c.silver).length} silver</span>
+    <span>&middot;</span>
+    <span>${new Set(expanded.map(c=>c.country)).size} countries</span>
+    <span>&middot;</span>
+    <span>${Math.min(...expanded.map(c=>c.year))}&ndash;${Math.max(...expanded.map(c=>c.year))}</span>
+  `;
+}
+
+function setSort(key) {
+  if (currentSort === key) sortDir *= -1;
+  else { currentSort = key; sortDir = key === 'value' ? -1 : 1; }
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === key));
+  render();
+}
+
+document.getElementById('searchInput').addEventListener('input', render);
+document.getElementById('countryFilter').addEventListener('change', render);
+document.getElementById('silverOnly').addEventListener('change', render);
+
+populateCountries();
+render();
+</script>
+</body>
+</html>
